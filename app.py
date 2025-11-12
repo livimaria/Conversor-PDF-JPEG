@@ -2,25 +2,18 @@ import streamlit as st
 import tempfile
 import os
 import zipfile
-from pdf2image import convert_from_path
-
-# --------------------------------------------------
-# CONFIGURAÇÃO POPPLER
-# --------------------------------------------------
-# Caminho relativo (funciona no Streamlit Cloud se adicionado em packages.txt)
-POPPLER_PATH = os.path.join(os.getcwd(), "poppler-25.07.0", "Library", "bin")
+from PIL import Image
+import fitz  # PyMuPDF
 
 # --------------------------------------------------
 # ESTILO E CORES
 # --------------------------------------------------
-from PIL import Image
-
 # Carregar a logo
 logo = Image.open("logo.png")
 
 st.set_page_config(
     page_title="Conversor Ecardio - PDF para JPEG",
-    page_icon=logo,  # ícone personalizado com a logo
+    page_icon=logo,
     layout="centered"
 )
 
@@ -28,10 +21,10 @@ st.set_page_config(
 st.markdown("""
     <style>
         body {
-            background-color: #F5F9FF;
+            background-color: #FFFFFF;
         }
         .main {
-            background-color: #F5F9FF;
+            background-color: #FFFFFF;
             color: #003366;
         }
         h1, h2, h3, h4 {
@@ -92,16 +85,24 @@ if uploaded_files:
                         with open(pdf_temp, "wb") as f:
                             f.write(pdf.read())
 
-                        # Converter PDF → JPEG
-                        pages = convert_from_path(pdf_temp, dpi=300, poppler_path=POPPLER_PATH)
+                        # --------------------------------------------------
+                        # Conversão usando PyMuPDF
+                        # --------------------------------------------------
+                        doc = fitz.open(pdf_temp)
                         base_name = os.path.splitext(pdf.name)[0]
 
-                        for i, page in enumerate(pages, start=1):
+                        for i, page in enumerate(doc, start=1):
+                            pix = page.get_pixmap(dpi=300)
                             img_name = f"{base_name}_pagina_{i}.jpg"
                             img_path = os.path.join(temp_dir, img_name)
-                            page.save(img_path, "JPEG", quality=95)
+                            pix.save(img_path, "JPEG")
                             zipf.write(img_path, arcname=img_name)
 
+                        doc.close()
+
+                # --------------------------------------------------
+                # Botão de download
+                # --------------------------------------------------
                 with open(zip_path, "rb") as f:
                     st.download_button(
                         label="📦 Baixar imagens convertidas (ZIP)",
